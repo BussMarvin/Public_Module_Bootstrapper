@@ -1,0 +1,63 @@
+name: CallNugetCreator
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  Extract:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract_version.outputs.version }}
+      isPreRelease: ${{ steps.check_branch.outputs.isPreRelease }}
+    steps:
+      - name: Check if Pull Request is Merged
+        id: check_branch
+        run: |
+          echo "Target Branch: $GITHUB_BASE_REF"
+          echo "Source Branch: $GITHUB_HEAD_REF"
+          if [ "$GITHUB_BASE_REF" == "master" ]; then
+            echo "Merged to master Branch."
+            echo isPreReleaseValue = false  
+          elif [ "$GITHUB_BASE_REF" == "developer" ]; then
+            echo "Merged to developer Branch."
+            echo isPreReleaseValue = true
+          else
+            echo "Merged to other Branch."
+            exit 0
+          fi
+          echo "isPreRelease=$isPreReleaseValue" >> "$GITHUB_OUTPUT"
+
+      - name: Extract Version from Branch Name
+        id: extract_version
+        run: |
+          branch_name=${{ github.event.pull_request.head.ref }}
+         
+          if [[ $branch_name =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]] && [ ${{vars.USE_FALLBACK_VERSION}} == "false" ]; then
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+
+          value="$major.$minor.$patch"
+
+          else
+          echo "No version found in branch name. Using a fallback version."
+          value="${{vars.FALLBACK_VERSION}}"
+          fi
+          echo $value
+          echo "version=$value" >> "$GITHUB_OUTPUT"
+
+
+  Call_NugetCreator:
+    needs: Extract
+    uses: BussMarvin/GithubWorkflows/.github/workflows/NugetCreator.yml@0.0.0.0-CreateNugetWorkflow
+    with:
+      main_project: ${{ vars.MAIN_PROJECT }}
+      version_number: ${{needs.Extract.outputs.version}}
+      is_prerelease: ${{needs.Extract.outputs.isPreRelease}}
+      release_name: ${{ vars.MAIN_PROJECT }} ${{ github.event.pull_request.head.ref }} NuGet
+      release_body: ${{ github.event.pull_request.body }}
+    secrets:
+      nuget_PackageToken: ${{ secrets.NUGET_PACKAGE_TOKEN }}

@@ -1,0 +1,20 @@
+name: NugetManuell
+
+on:
+  workflow_dispatch:
+    inputs:
+      projectOne:
+        description: 'Projektname'
+        required: true
+      version:
+        description: 'Versions Nummer'
+        required: true
+jobs:       
+  Call_NugetCreator:
+    uses: BussMarvin/GithubWorkflows/.github/workflows/ExtractVersion.yml@0.0.0.0-CreateNugetWorkflow
+    with:
+      main_project: ${{  inputs.projectOne }} 
+      useExternalVersion: "1"
+      version: ${{ inputs.version }}
+    secrets:
+      nuget_PackageToken: ${{ secrets.NUGET_PACKAGE_TOKEN }}
